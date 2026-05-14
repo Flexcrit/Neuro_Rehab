@@ -243,8 +243,9 @@ except Exception as e:
     db = None
 
 try:
-    ai_client = genai.Client()
-    print("[*] Gemini AI Client initialized successfully.")
+    api_key = os.environ.get('GEMINI_API_KEY')
+    ai_client = genai.Client(api_key=api_key) if api_key else genai.Client()
+    print("[*] Gemini AI Client initialized successfully with active API Key.")
 except Exception as e:
     print(f"[!] Could not initialize Gemini Client: {e}")
     ai_client = None
