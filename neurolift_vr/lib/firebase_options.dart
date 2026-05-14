@@ -47,7 +47,7 @@ class DefaultFirebaseOptions {
   // IMPORTANT: Replace the apiKey and appId with your actual Android app values
   // from the Firebase Console > Project Settings > Your Apps > Android app.
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyA_iMfYjnefXC6Cs0OHtvkdAkCFs0MyJf0',
+    apiKey: 'AIzaSyDRa-T1F5EmS7lUdKhGdvFBol_HmT8hZ-c',
     appId: '1:689222497876:android:f3088861d9a3b10e8b5fc1',
     messagingSenderId: '689222497876',
     projectId: 'vr-based-neuro-rehab',
