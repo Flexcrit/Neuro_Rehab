@@ -3,6 +3,11 @@ import time
 import firebase_admin
 from firebase_admin import credentials, firestore
 from google import genai
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Initialize Firebase Admin SDK
 # Autodetects standard GOOGLE_APPLICATION_CREDENTIALS or Firebase default credentials
