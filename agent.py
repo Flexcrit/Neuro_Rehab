@@ -225,7 +225,11 @@ class NeuroRehabSignalPipeline:
 
 # Global instances initialized safely
 try:
-    firebase_admin.initialize_app()
+    if os.path.exists('service-account.json'):
+        cred = credentials.Certificate('service-account.json')
+        firebase_admin.initialize_app(cred)
+    else:
+        firebase_admin.initialize_app()
     print("[*] Firebase Admin SDK initialized successfully.")
 except ValueError:
     pass
