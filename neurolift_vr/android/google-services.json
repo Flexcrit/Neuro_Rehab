@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "689222497876",
+    "project_id": "vr-based-neuro-rehab",
+    "storage_bucket": "vr-based-neuro-rehab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:689222497876:android:f3088861d9a3b10e8b5fc1",
+        "android_client_info": {
+          "package_name": "com.neurolift.neurolift_vr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_iMfYjnefXC6Cs0OHtvkdAkCFs0MyJf0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

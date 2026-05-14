@@ -1,0 +1,58 @@
+name: neurolift_vr
+description: "NeuroLift VR Analytics - Enterprise medical dashboard for VR neuro-rehabilitation."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core: ^4.9.0
+  cloud_firestore: ^6.4.1
+
+  # State Management
+  flutter_bloc: ^9.1.0
+  equatable: ^2.0.7
+
+  # Routing
+  go_router: ^15.1.0
+
+  # Dependency Injection
+  get_it: ^8.0.3
+
+  # Networking
+  dio: ^5.7.0
+
+  # Functional Error Handling
+  dartz: ^0.10.1
+
+  # Local Storage
+  shared_preferences: ^2.5.3
+
+  # UI / Charting
+  google_fonts: ^8.1.0
+  fl_chart: ^0.70.2
+
+  # Date Formatting
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/images/logo.png"
+  min_sdk_android: 21
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/logo.png

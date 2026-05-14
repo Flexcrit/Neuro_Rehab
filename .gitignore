@@ -1,0 +1,18 @@
+# Python / Environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Flutter nested builds
+**/build/
+**/.dart_tool/
+**/.flutter-plugins-dependencies
+**/.pub-cache/
