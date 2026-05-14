@@ -2,18 +2,20 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/colors.dart';
-import '../../../../core/constants/strings.dart';
 import '../../domain/entities/session_entity.dart';
 import '../cubit/dashboard_cubit.dart';
+import '../widgets/neuro_app_bar.dart';
+import '../widgets/neuro_bottom_nav.dart';
 import '../widgets/summary_metric_card.dart';
 import '../widgets/filter_chip_row.dart';
 import '../widgets/session_list_item.dart';
+import '../../../../core/constants/strings.dart';
 
 /// Main dashboard page assembled using Clean Architecture widgets.
 ///
 /// Uses [BlocBuilder] to reactively render based on [DashboardState].
-/// Implements a [CustomScrollView] with pinned app bar, metrics row,
-/// filter chips, and a sliver list of session cards.
+/// Hosts [NeuroAppBar] in a [CustomScrollView] and delegates navigation
+/// to [NeuroBottomNav].
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -22,6 +24,8 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  int _navIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -32,205 +36,136 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: BlocBuilder<DashboardCubit, DashboardState>(
-        builder: (context, state) {
-          if (state is DashboardLoading || state is DashboardInitial) {
-            return const _LoadingView();
-          }
+      bottomNavigationBar: NeuroBottomNav(
+        currentIndex: _navIndex,
+        onTap: (index) => setState(() => _navIndex = index),
+      ),
+      body: SafeArea(
+        bottom: false,
+        child: BlocBuilder<DashboardCubit, DashboardState>(
+          builder: (context, state) {
+            if (state is DashboardLoading || state is DashboardInitial) {
+              return const _LoadingView();
+            }
 
-          if (state is DashboardError) {
-            return _ErrorView(
-              message: state.message,
-              onRetry: () => context.read<DashboardCubit>().loadDashboard(),
-            );
-          }
+            if (state is DashboardError) {
+              return _ErrorView(
+                message: state.message,
+                onRetry: () =>
+                    context.read<DashboardCubit>().loadDashboard(),
+              );
+            }
 
-          if (state is DashboardLoaded) {
-            return RefreshIndicator(
-              color: AppColors.primaryAccent,
-              backgroundColor: AppColors.surface,
-              onRefresh: () => context.read<DashboardCubit>().refresh(),
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
+            if (state is DashboardLoaded) {
+              return RefreshIndicator(
+                color: AppColors.primaryAccent,
+                backgroundColor: AppColors.surface,
+                onRefresh: () =>
+                    context.read<DashboardCubit>().refresh(),
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  slivers: [
+                    // ── Pinned App Bar ──────────────────────────────────
+                    const NeuroAppBar(),
+
+                    // ── Summary Metrics Row ─────────────────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.only(top: 16, bottom: 12),
+                        child: SummaryMetricsRow(metrics: state.metrics),
+                      ),
+                    ),
+
+                    // ── Section Header ──────────────────────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                        child: Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              AppStrings.recentSessions,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall,
+                            ),
+                            Text(
+                              '${state.filteredSessions.length} sessions',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ── Filter Chip Row ─────────────────────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: FilterChipRow(
+                          activeFilter: state.activeFilter,
+                          onFilterChanged: (filter) => context
+                              .read<DashboardCubit>()
+                              .changeFilter(filter),
+                        ),
+                      ),
+                    ),
+
+                    // ── Session Sliver List ─────────────────────────────
+                    if (state.filteredSessions.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _EmptyFilterView(),
+                      )
+                    else
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final session =
+                                state.filteredSessions[index];
+                            return SessionListItem(
+                              session: session,
+                              onTap: session.hasAiInsights
+                                  ? () =>
+                                      _showAiInsights(context, session)
+                                  : null,
+                            );
+                          },
+                          childCount: state.filteredSessions.length,
+                        ),
+                      ),
+
+                    // Bottom padding for nav bar clearance
+                    const SliverPadding(
+                        padding: EdgeInsets.only(bottom: 100)),
+                  ],
                 ),
-                slivers: [
-                  // ── Pinned App Bar ───────────────────────────────────
-                  _buildAppBar(context),
+              );
+            }
 
-                  // ── Summary Metrics ──────────────────────────────────
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 16, bottom: 12),
-                      child: SummaryMetricsRow(metrics: state.metrics),
-                    ),
-                  ),
-
-                  // ── Section Header ───────────────────────────────────
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            AppStrings.recentSessions,
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          Text(
-                            '${state.filteredSessions.length} sessions',
-                            style: Theme.of(context).textTheme.labelMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // ── Filter Chips ─────────────────────────────────────
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: FilterChipRow(
-                        activeFilter: state.activeFilter,
-                        onFilterChanged: (filter) =>
-                            context.read<DashboardCubit>().changeFilter(filter),
-                      ),
-                    ),
-                  ),
-
-                  // ── Session List ─────────────────────────────────────
-                  if (state.filteredSessions.isEmpty)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _EmptyFilterView(),
-                    )
-                  else
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final session = state.filteredSessions[index];
-                          return SessionListItem(
-                            session: session,
-                            onTap: session.hasAiInsights
-                                ? () => _showAiInsights(context, session)
-                                : null,
-                          );
-                        },
-                        childCount: state.filteredSessions.length,
-                      ),
-                    ),
-
-                  // Bottom padding for nav bar
-                  const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
-                ],
-              ),
-            );
-          }
-
-          return const SizedBox.shrink();
-        },
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }
 
-  // ── App Bar ────────────────────────────────────────────────────────────
-  SliverAppBar _buildAppBar(BuildContext context) {
-    return SliverAppBar(
-      pinned: true,
-      floating: false,
-      expandedHeight: 100,
-      backgroundColor: AppColors.background,
-      surfaceTintColor: Colors.transparent,
-      flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsets.only(left: 20, bottom: 14),
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              AppStrings.welcomePrefix,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              AppStrings.appName,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        // AI Live indicator
-        Container(
-          margin: const EdgeInsets.only(right: 8, top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: AppColors.statusGreenBg,
-            border: Border.all(
-              color: AppColors.secondaryAccent.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _PulsingDot(color: AppColors.secondaryAccent, size: 7),
-              const SizedBox(width: 6),
-              const Text(
-                AppStrings.aiLive,
-                style: TextStyle(
-                  color: AppColors.secondaryAccent,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Notifications
-        IconButton(
-          onPressed: () {},
-          icon: Stack(
-            children: [
-              const Icon(Icons.notifications_none_rounded, size: 24),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.error,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
-  // ── AI Insights Bottom Sheet ───────────────────────────────────────────
+  // ── AI Insights Bottom Sheet ──────────────────────────────────────────────
   void _showAiInsights(BuildContext ctx, SessionEntity session) {
     showModalBottomSheet(
       context: ctx,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(24)),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
@@ -238,14 +173,16 @@ class _DashboardPageState extends State<DashboardPage> {
               maxHeight: MediaQuery.of(ctx).size.height * 0.6,
             ),
             decoration: BoxDecoration(
-              color: AppColors.surface.withOpacity(0.95),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              color: AppColors.surface.withValues(alpha: 0.95),
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24)),
               border: const Border(
                 top: BorderSide(color: AppColors.divider, width: 1),
               ),
             ),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+              padding:
+                  const EdgeInsets.fromLTRB(24, 14, 24, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -261,7 +198,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Header
+                  // Header row
                   Row(
                     children: [
                       Container(
@@ -270,13 +207,16 @@ class _DashboardPageState extends State<DashboardPage> {
                           borderRadius: BorderRadius.circular(12),
                           gradient: AppColors.primaryGradient,
                         ),
-                        child: const Icon(Icons.auto_awesome_rounded,
-                            color: Colors.white, size: 20),
+                        child: const Icon(
+                            Icons.auto_awesome_rounded,
+                            color: Colors.white,
+                            size: 20),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
                             const Text(
                               'AI Recovery Plan',
@@ -300,7 +240,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  // Recommendation content
+                  // Recommendation body
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -310,7 +250,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       border: Border.all(color: AppColors.divider),
                     ),
                     child: Text(
-                      session.aiRecommendation ?? 'No recommendation available.',
+                      session.aiRecommendation ??
+                          'No recommendation available.',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 14,
@@ -328,11 +269,13 @@ class _DashboardPageState extends State<DashboardPage> {
                       Text(
                         session.patientName,
                         style: const TextStyle(
-                            color: AppColors.textTertiary, fontSize: 12),
+                            color: AppColors.textTertiary,
+                            fontSize: 12),
                       ),
                       const Spacer(),
                       Icon(Icons.score_rounded,
-                          color: AppColors.scoreColor(session.score), size: 15),
+                          color: AppColors.scoreColor(session.score),
+                          size: 15),
                       const SizedBox(width: 5),
                       Text(
                         'Score: ${session.score}',
@@ -354,57 +297,11 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-// ── Reusable Private Widgets ─────────────────────────────────────────────────
-
-class _PulsingDot extends StatefulWidget {
-  final Color color;
-  final double size;
-  const _PulsingDot({required this.color, required this.size});
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _anim = Tween(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _anim,
-      child: Container(
-        width: widget.size,
-        height: widget.size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: widget.color,
-        ),
-      ),
-    );
-  }
-}
+// ── Private Support Widgets ───────────────────────────────────────────────────
 
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
+
   @override
   Widget build(BuildContext context) {
     return const Center(
@@ -418,7 +315,8 @@ class _LoadingView extends StatelessWidget {
           SizedBox(height: 16),
           Text(
             'Loading dashboard...',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            style: TextStyle(
+                color: AppColors.textSecondary, fontSize: 14),
           ),
         ],
       ),
@@ -429,7 +327,9 @@ class _LoadingView extends StatelessWidget {
 class _ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
+
   const _ErrorView({required this.message, required this.onRetry});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -444,7 +344,8 @@ class _ErrorView extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style: const TextStyle(
+                  color: AppColors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
@@ -467,6 +368,7 @@ class _ErrorView extends StatelessWidget {
 
 class _EmptyFilterView extends StatelessWidget {
   const _EmptyFilterView();
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -478,7 +380,8 @@ class _EmptyFilterView extends StatelessWidget {
           const SizedBox(height: 12),
           const Text(
             'No sessions match this filter.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            style: TextStyle(
+                color: AppColors.textSecondary, fontSize: 14),
           ),
         ],
       ),
