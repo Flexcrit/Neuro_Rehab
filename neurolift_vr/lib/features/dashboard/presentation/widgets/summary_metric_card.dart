@@ -3,8 +3,11 @@ import '../../../../core/constants/colors.dart';
 import '../../domain/entities/summary_metrics_entity.dart';
 import '../../../../core/utils/formatters.dart';
 
-/// Horizontal scrollable row of summary metric cards displayed
-/// at the top of the dashboard.
+/// Horizontally scrollable row of high-density metric cards.
+///
+/// Height is capped at 100 px. Each [_MetricCard] is 140 × 80 px.
+/// Consumes a [SummaryMetricsEntity] to avoid passing raw primitives
+/// across widget boundaries.
 class SummaryMetricsRow extends StatelessWidget {
   final SummaryMetricsEntity metrics;
 
@@ -49,6 +52,12 @@ class SummaryMetricsRow extends StatelessWidget {
   }
 }
 
+/// Individual 140 × 80 px metric card.
+///
+/// Layout (top → bottom, all left-aligned):
+/// - Icon (top-left)
+/// - Large bold number (24 sp, `#FFFFFF`)
+/// - Tiny label (12 sp, `#8E92A4`)
 class _MetricCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -65,17 +74,18 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 145,
-      margin: const EdgeInsets.symmetric(horizontal: 6),
-      padding: const EdgeInsets.all(14),
+      width: 140,
+      height: 80,
+      margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        color: AppColors.surface,                  // #11162D
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
           BoxShadow(
-            color: AppColors.cardShadow,
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
-            offset: Offset(0, 4),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -83,17 +93,28 @@ class _MetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: iconColor, size: 20),
+          // Top-left icon
+          Icon(icon, color: iconColor, size: 18),
+
+          // Large bold number
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 22,
-                ),
+            style: const TextStyle(
+              color: AppColors.textPrimary,          // #FFFFFF
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              height: 1.0,
+            ),
           ),
+
+          // Tiny label
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium,
+            style: const TextStyle(
+              color: AppColors.textSecondary,         // #8E92A4
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
