@@ -2,83 +2,96 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/dashboard/presentation/cubit/dashboard_cubit.dart';
-import '../../features/dashboard/presentation/pages/dashboard_page.dart';
-import '../../features/patients/presentation/cubit/patients_cubit.dart';
-import '../../features/patients/presentation/pages/patients_page.dart';
+import '../../di/injection.dart';
 import '../../features/analytics/presentation/cubit/analytics_cubit.dart';
 import '../../features/analytics/presentation/pages/analytics_page.dart';
+import '../../features/dashboard/presentation/cubit/dashboard_cubit.dart';
+import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/dashboard/presentation/widgets/neuro_bottom_nav.dart';
+import '../../features/patients/presentation/cubit/patients_cubit.dart';
+import '../../features/patients/presentation/pages/patients_page.dart';
+import '../../features/patients/presentation/pages/patient_profile_page.dart';
+import '../../features/sessions/presentation/pages/session_detail_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../constants/colors.dart';
-import '../../di/injection.dart';
-import '../../main.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-/// Declarative GoRouter configuration with StatefulShellRoute
-/// for bottom navigation state persistence.
 GoRouter createAppRouter() {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/splash',
+    initialLocation: '/dashboard',
     routes: [
-      GoRoute(
-        path: '/splash',
-        builder: (context, state) => const SplashScreen(),
-      ),
+      // ── Shell route (4-tab scaffold) ────────────────────────────────
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return _ScaffoldWithNav(navigationShell: navigationShell);
-        },
+        builder: (context, state, navigationShell) =>
+            _ScaffoldWithNav(navigationShell: navigationShell),
         branches: [
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/dashboard',
-                builder: (context, state) => BlocProvider(
-                  create: (_) => getIt<DashboardCubit>(),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/dashboard',
+              pageBuilder: (context, state) => _fadePage(
+                BlocProvider(
+                  create: (_) => getIt<DashboardCubit>()..initDashboardStream(),
                   child: const DashboardPage(),
                 ),
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/patients',
-                builder: (context, state) => BlocProvider(
-                  create: (_) => getIt<PatientsCubit>(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/patients',
+              pageBuilder: (context, state) => _fadePage(
+                BlocProvider(
+                  create: (_) => getIt<PatientsCubit>()..loadPatients(),
                   child: const PatientsPage(),
                 ),
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/analytics',
-                builder: (context, state) => BlocProvider(
-                  create: (_) => getIt<AnalyticsCubit>(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/analytics',
+              pageBuilder: (context, state) => _fadePage(
+                BlocProvider(
+                  create: (_) => getIt<AnalyticsCubit>()..loadAnalytics(),
                   child: const AnalyticsPage(),
                 ),
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/settings',
-                builder: (context, state) => const SettingsPage(),
-              ),
-            ],
-          ),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/settings',
+              pageBuilder: (context, state) => _fadePage(const SettingsPage()),
+            ),
+          ]),
         ],
+      ),
+
+      // ── Full-screen routes (outside shell) ───────────────────────────
+      GoRoute(
+        path: '/sessions/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return _slidePage(SessionDetailPage(sessionId: id));
+        },
+      ),
+      GoRoute(
+        path: '/patients/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return _slidePage(PatientProfilePage(patientId: id));
+        },
       ),
     ],
   );
 }
 
-/// Shell scaffold wrapping all pages with a shared bottom navigation bar.
+// ── Scaffold with bottom nav ──────────────────────────────────────────────────
 class _ScaffoldWithNav extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
   const _ScaffoldWithNav({required this.navigationShell});
@@ -88,49 +101,46 @@ class _ScaffoldWithNav extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: navigationShell,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: AppColors.navBorder, width: 1),
-          ),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: navigationShell.currentIndex,
-          onTap: (index) => navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          ),
-          backgroundColor: AppColors.background,
-          selectedItemColor: AppColors.primaryAccent,
-          unselectedItemColor: AppColors.textSecondary,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_rounded),
-              activeIcon: Icon(Icons.dashboard),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline_rounded),
-              activeIcon: Icon(Icons.people),
-              label: 'Patients',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics_outlined),
-              activeIcon: Icon(Icons.analytics),
-              label: 'Analytics',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
-              label: 'Settings',
-            ),
-          ],
+      bottomNavigationBar: NeuroBottomNav(
+        currentIndex: navigationShell.currentIndex,
+        onTap: (index) => navigationShell.goBranch(
+          index,
+          initialLocation: index == navigationShell.currentIndex,
         ),
       ),
     );
   }
+}
+
+// ── Page transition helpers ───────────────────────────────────────────────────
+
+/// Cross-fade for tab switches.
+CustomTransitionPage<void> _fadePage(Widget child) {
+  return CustomTransitionPage<void>(
+    child: child,
+    transitionDuration: const Duration(milliseconds: 200),
+    transitionsBuilder: (_, animation, __, child) =>
+        FadeTransition(opacity: animation, child: child),
+  );
+}
+
+/// Slide-left for forward navigation (session detail, patient profile).
+CustomTransitionPage<void> _slidePage(Widget child) {
+  return CustomTransitionPage<void>(
+    child: child,
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: const Duration(milliseconds: 280),
+    transitionsBuilder: (_, animation, secondaryAnimation, child) {
+      final slide = Tween<Offset>(
+              begin: const Offset(1.0, 0), end: Offset.zero)
+          .animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeInOut));
+      final fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
+          CurvedAnimation(parent: secondaryAnimation, curve: Curves.easeInOut));
+      return FadeTransition(
+        opacity: fadeOut,
+        child: SlideTransition(position: slide, child: child),
+      );
+    },
+  );
 }
